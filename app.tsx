@@ -6,18 +6,18 @@ import {
 } from 'lucide-react';
 
 /**
- * BULA_BASE KERNEL v4.2.1 - ST. AUGUSTINE MASTER
- * STATUS: SEVEN-SEALED UNIFIED BUILD
+ * BULA_BASE KERNEL v4.2.2 - ST. AUGUSTINE MASTER
+ * STATUS: AUTO-TRANSITION UPDATED
  */
 
 // --- 1. CONFIG & THEME ---
 const BULA_CONFIG = {
   locationId: "ST_AUGUSTINE_TROY_01",
   branding: {
-    primary: "#DEFF9A", // Neon Green
-    background: "#091A11", // Forest Jade
+    primary: "#DEFF9A", 
+    background: "#091A11", 
     accent: "#A78BFA",
-    ritual: "#F5D06A" // Gold
+    ritual: "#F5D06A" 
   },
   fonts: {
     serif: "'Crimson Text', serif",
@@ -68,6 +68,16 @@ export function BulaBaseApp() {
   const [actionId, setActionId] = useState(null);
   const [glowActive, setGlowActive] = useState(false);
   const [lead, setLead] = useState({ name: '', phone: '', email: '' });
+
+  // Auto-transition logic for Gideon
+  useEffect(() => {
+    if (screen === 'SOMMELIER') {
+      const timer = setTimeout(() => {
+        setScreen('RESULT');
+      }, 3500); // 3.5 seconds of "consulting"
+      return () => clearTimeout(timer);
+    }
+  }, [screen]);
 
   const handleReset = useCallback(() => {
     setScreen('GATE');
@@ -127,7 +137,6 @@ export function BulaBaseApp() {
           <div className="glow-ring" style={{ width: '250px', height: '250px' }}></div>
           <Sparkles size={64} color={C.ritual} style={{ marginBottom: '20px' }} />
           <p style={{ color: C.primary, fontFamily: TF.mono, letterSpacing: '0.2em' }}>GIDEON IS CONSULTING THE ROOTS...</p>
-          <button onClick={() => setScreen('RESULT')} style={{ marginTop: '40px', color: C.ritual, background: 'none', border: 'none', cursor: 'pointer' }}>[ UNVEIL RESULT ]</button>
         </div>
       )}
 
@@ -156,13 +165,13 @@ export function BulaBaseApp() {
       )}
 
       <div style={{ position: 'fixed', bottom: 0, width: '100%', padding: '15px', background: 'rgba(0,0,0,0.4)', color: 'white', fontSize: '10px', fontFamily: TF.mono, textAlign: 'center', opacity: 0.5 }}>
-        LOC: {BULA_CONFIG.locationId} | VER: 4.2.1 | SID: {actionId || 'PENDING'}
+        LOC: {BULA_CONFIG.locationId} | VER: 4.2.2 | SID: {actionId || 'PENDING'}
       </div>
     </div>
   );
 }
 
-// --- 5. THE IGNITION (CRITICAL FIX) ---
+// --- 5. THE IGNITION ---
 const container = document.getElementById('root');
 if (container) {
   const root = createRoot(container);
