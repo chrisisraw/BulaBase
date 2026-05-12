@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback, useReducer } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createRoot } from 'react-dom/client';
 import { 
-  Leaf, Wind, Moon, Sun, ChevronRight, Volume2, VolumeX, 
-  RefreshCcw, ArrowRight, Sparkles, CheckCircle2, AlertCircle 
+  Sparkles, Leaf, Wind, Moon, Sun, 
+  ChevronRight, Volume2, VolumeX, RefreshCcw 
 } from 'lucide-react';
 
 /**
@@ -27,12 +28,7 @@ const BULA_CONFIG = {
 const C = BULA_CONFIG.branding;
 const TF = BULA_CONFIG.fonts;
 
-// --- 2. ENGINE CONSTANTS ---
-const WEB_SPEECH_DEADLINE_MS = 18000; 
-const SUCCESS_GLOW_HOLD_MS = 1500;
-const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-// --- 3. THE KIOSK CSS (Hardened) ---
+// --- 2. THE KIOSK CSS ---
 const KIOSK_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap');
   * { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
@@ -41,7 +37,7 @@ const KIOSK_CSS = `
   @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.5); opacity: 0; } }
 `;
 
-// --- 4. COMPONENTS ---
+// --- 3. COMPONENTS ---
 const GoldenSeedOverlay = ({ actionId, glowActive, onSeedClose }) => {
   const frozenURL = useRef(null);
   useEffect(() => {
@@ -66,8 +62,8 @@ const GoldenSeedOverlay = ({ actionId, glowActive, onSeedClose }) => {
   );
 };
 
-// --- 5. MAIN ROUTER ---
-export default function BulaBaseApp() {
+// --- 4. MAIN APPLICATION ---
+export function BulaBaseApp() {
   const [screen, setScreen] = useState('GATE');
   const [actionId, setActionId] = useState(null);
   const [glowActive, setGlowActive] = useState(false);
@@ -101,7 +97,7 @@ export default function BulaBaseApp() {
           <h2 style={{ color: C.primary, fontSize: '3rem', marginBottom: '40px' }}>HOW IS YOUR SPIRIT TODAY?</h2>
           <div style={{ display: 'grid', gap: '20px' }}>
             {['RADIANT', 'STEADY', 'SEEKING', 'HEAVY'].map(vibe => (
-              <button key={vibe} onClick={() => setScreen('LEAD')} style={{ padding: '40px', background: 'rgba(255,255,255,0.05)', border: `1px solid rgba(222,255,154,0.3)`, color: 'white', textAlign: 'left', borderRadius: '20px', fontSize: '1.5rem', transition: 'all 0.3s' }}>
+              <button key={vibe} onClick={() => setScreen('LEAD')} style={{ padding: '40px', background: 'rgba(255,255,255,0.05)', border: `1px solid rgba(222,255,154,0.3)`, color: 'white', textAlign: 'left', borderRadius: '20px', fontSize: '1.5rem' }}>
                 {vibe}
               </button>
             ))}
@@ -138,7 +134,7 @@ export default function BulaBaseApp() {
       {screen === 'RESULT' && (
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <h2 style={{ color: C.ritual, fontSize: '3rem', marginBottom: '40px' }}>RITUAL COMPLETE</h2>
-          <button onClick={() => setGlowActive(true)} style={{ padding: '30px 80px', background: C.ritual, color: C.background, borderRadius: '50px', border: 'none', fontWeight: 'bold', fontSize: '1.5rem', boxShadow: `0 0 30px ${C.ritual}44` }}>
+          <button onClick={() => setGlowActive(true)} style={{ padding: '30px 80px', background: C.ritual, color: C.background, borderRadius: '50px', border: 'none', fontWeight: 'bold', fontSize: '1.5rem' }}>
             REVEAL GOLDEN SEED
           </button>
           <GoldenSeedOverlay glowActive={glowActive} actionId={actionId} onSeedClose={() => setScreen('MENU')} />
@@ -164,4 +160,11 @@ export default function BulaBaseApp() {
       </div>
     </div>
   );
+}
+
+// --- 5. THE IGNITION (CRITICAL FIX) ---
+const container = document.getElementById('root');
+if (container) {
+  const root = createRoot(container);
+  root.render(<BulaBaseApp />);
 }
