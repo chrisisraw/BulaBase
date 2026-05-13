@@ -328,28 +328,61 @@ const BASE_INVENTORY = [
   { id:"f1", category:"food",     name:"Açaí Energy Bowl",  origin:"Bar Kitchen",               price:12, gramsPerShell:0,  estimatedShells:99, potency:"light",  moodScore:20, experienceDesc:"Frozen açaí, banana, granola, hemp seeds, local honey.",               batchId:"KITCHEN", alkaloidPpm:"Superfood", kavalactones:"—", profile:"tropical", totalSold:0, visible:true },
   { id:"f2", category:"food",     name:"Turmeric Tahini Wrap",origin:"Bar Kitchen",             price:10, gramsPerShell:0,  estimatedShells:99, potency:"light",  moodScore:15, experienceDesc:"Roasted sweet potato, kale, turmeric tahini, hemp wrap.",               batchId:"KITCHEN", alkaloidPpm:"Plant-Based", kavalactones:"—", profile:"earthy", totalSold:0, visible:true },
 ];
-
-// ── App FSM INIT ──────────────────────────────────────────────────────────────
-const FSM_INIT = {
-  screen:          "GATE",     // GATE | QUIZ | SOMMELIER | RESULT | MENU | ADMIN
-  quizStep:        QUIZ_STATES.FREQUENCY,
-  vibes:           {},
-  user:            null,
-  recommendedId:   null,
-  status:          "IDLE",     // IDLE | PROCESSING | ERROR  ← v1.7.2 LOCKED
-  inventory:       BASE_INVENTORY,
-  error:           null,
-  lastActionId:    null,       // UUID stamped by REQ_START, carried to Golden Seed
-  lastItemName:    null,
-  isDossierMode:   true,
-  hiddenCategories:[],
+// ── App FSM DEFAULTS — base state shape ──────────────────────────────────────
+const FSM_DEFAULTS = {
+  screen:           "GATE",
+  quizStep:         QUIZ_STATES.FREQUENCY,
+  vibes:            {},
+  user:             null,
+  recommendedId:    null,
+  status:           "IDLE",
+  inventory:        BASE_INVENTORY,
+  error:            null,
+  lastActionId:     null,
+  lastItemName:     null,
+  isDossierMode:    true,
+  hiddenCategories: [],
 };
+
+// ── getInitialState — returning user check ────────────────────────────────────
+const getInitialState = () => {
+  try {
+    const stored = localStorage.getItem("bula_user");
+    if (stored) {
+      const bula_user = JSON.parse(stored);
+      if (bula_user?.name) {
+        window.BULA_RETURNING_USER = bula_user.name;
+        return { ...FSM_DEFAULTS, screen: "QUIZ", user: bula_user };
+      }
+    }
+  } catch (e) {
+    console.warn("[BulaBase] localStorage corrupted — clearing.", e);
+    localStorage.removeItem("bula_user");
+  }
+  return { ...FSM_DEFAULTS, screen: "GATE" };
+};
+
+const FSM_INIT = getInitialState();
 
 // ── App FSM reducer ───────────────────────────────────────────────────────────
 function appReducer(s, a) {
   switch (a.type) {
     case "NAV":           return { ...s, screen: a.payload };
-    case "GATE_COMPLETE": return { ...s, screen:"QUIZ", user:a.payload, quizStep:QUIZ_STATES.FREQUENCY, vibes:{} };
+
+    case "GATE_COMPLETE": {
+      try {
+        // Fix 1: Wrap in try/catch to prevent crashes in Safari Private Mode
+        localStorage.setItem("bula_user", JSON.stringify({
+          name:  a.payload.name,
+          phone: a.payload.phone,
+          email: a.payload.email ?? null,
+        }));
+        window.BULA_RETURNING_USER = a.payload.name;
+      } catch (e) {
+        console.warn("[BulaBase] Could not persist user — Safari Private Mode?", e);
+      }
+      return { ...s, screen: "QUIZ", user: a.payload, quizStep: QUIZ_STATES.FREQUENCY, vibes: {} };
+    }
 
     case "QUIZ_ANSWER": {
       const next = { ...s.vibes, [s.quizStep]: a.payload };
@@ -358,6 +391,7 @@ function appReducer(s, a) {
         return { ...s, vibes:next, quizStep:QUIZ_SEQUENCE[idx+1] };
       return { ...s, vibes:next, screen:"SOMMELIER" };
     }
+
     case "QUIZ_BACK": {
       const idx = QUIZ_SEQUENCE.indexOf(s.quizStep);
       return idx <= 0
@@ -386,7 +420,16 @@ function appReducer(s, a) {
       return { ...s, hiddenCategories:h };
     }
     case "UPDATE_ITEM": return { ...s, inventory:s.inventory.map(i=>i.id===a.payload.id?{...i,...a.payload.patch}:i) };
-    case "RESTART":     return { ...FSM_INIT };
+    
+    case "RESTART": {
+      // Fix 2: Properly clear storage and return to raw base state
+      try {
+        localStorage.removeItem("bula_user");
+      } catch {}
+      window.BULA_RETURNING_USER = null;
+      return { ...FSM_DEFAULTS }; 
+    }
+
     default: return s;
   }
 }
