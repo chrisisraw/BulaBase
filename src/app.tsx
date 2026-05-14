@@ -734,11 +734,24 @@ function useWizardSpeech({
     setSpeaking(false);
   }, [useGideon, elCfg, startGlowHold]);
 
-  const speakLine = useCallback(text => {
+ const speakLine = useCallback(text => {
     if (!text || isMuted) return;
-    queue.current.push(text);
-    drainQueue();
-  }, [isMuted, drainQueue]);
+
+    // Kills any existing speech immediately so the new line can start
+    window.speechSynthesis.cancel();
+
+    const msg = new SpeechSynthesisUtterance(text);
+    
+    // Uses your existing config for the Wizard's voice
+    if (typeof BULA_CONFIG !== 'undefined') {
+      msg.voice = window.speechSynthesis.getVoices().find(v => v.name === BULA_CONFIG.audio.voiceName) || null;
+      msg.pitch = BULA_CONFIG.audio.pitch;
+      msg.rate = BULA_CONFIG.audio.rate;
+      msg.volume = BULA_CONFIG.audio.volume;
+    }
+
+    window.speechSynthesis.speak(msg);
+  }, [isMuted]);
 
   // Speech loop fix: build a composite key for the current state.
   // If the key matches hasSpokenKey.current, skip. Otherwise speak once and lock.
