@@ -1703,8 +1703,10 @@ const getInitialState = () => {
     const stored = localStorage.getItem("bula_user");
     if (stored) {
       const bula_user = JSON.parse(stored);
-      if (bula_user?.name) {
-        window.BULA_RETURNING_USER     = bula_user.name;
+      // Validate name is a real string — reject empty, numeric, or single-char values
+      const name = bula_user?.name;
+      if (name && typeof name === "string" && name.trim().length > 1 && !/^\d/.test(name.trim())) {
+        window.BULA_RETURNING_USER     = name;
         window.BULA_RETURNING_GREETING = true;
         return { ...FSM_DEFAULTS, screen: "HERO", user: bula_user };
       }
@@ -2282,7 +2284,7 @@ function ScreenSommelier({ dispatch, inventory, vibes }) {
       if(hasTransitioned.current)return;
       hasTransitioned.current=true;
       dispatch({type:"SOMMELIER_DONE",payload:rec?.id||null});
-    },2200);
+    },4000); // 4s — gives customer time to read before auto-advancing to Result
     return()=>clearTimeout(id);
   },[done,rec,dispatch]);
 
@@ -2362,13 +2364,11 @@ function ScreenResult({ state, speaking, glowActive, lastLine, idleLine, dispatc
           {chronoOpt&&<span style={{fontFamily:TF.mono,fontSize:7,letterSpacing:2,color:C.indigo,background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.22)",borderRadius:4,padding:"3px 8px"}}>{chronoOpt.glyph} {chronoOpt.label.toUpperCase()} MATCH</span>}
         </div>
       )}
-      {!glowActive&&(
-        <button onClick={advance}
-          style={{width:"100%",padding:"16px 24px",borderRadius:28,border:"none",background:`linear-gradient(135deg,${C.neon},#b8e85c)`,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",boxShadow:`0 8px 28px rgba(222,255,154,0.18)`,animation:"screenIn 0.4s ease both"}}>
-          <span style={{fontFamily:TF.mono,fontWeight:700,fontSize:11,letterSpacing:3,textTransform:"uppercase",color:C.jade}}>VIEW TONIGHT'S MENU</span>
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 9h10M10 5l4 4-4 4" stroke={C.jade} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-      )}
+      <button onClick={advance}
+        style={{width:"100%",padding:"16px 24px",borderRadius:28,border:"none",background:`linear-gradient(135deg,${C.neon},#b8e85c)`,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",boxShadow:`0 8px 28px rgba(222,255,154,0.18)`,animation:"screenIn 0.6s ease both"}}>
+        <span style={{fontFamily:TF.mono,fontWeight:700,fontSize:11,letterSpacing:3,textTransform:"uppercase",color:C.jade}}>VIEW TONIGHT'S MENU</span>
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 9h10M10 5l4 4-4 4" stroke={C.jade} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </button>
     </div>
   );
 }
@@ -2702,28 +2702,35 @@ export default function BulaBaseKiosk() {
     useShowAndGo();
 
   const handleSuccessReady = useCallback(() => {
-    dispatch({ type:"RESULT_DONE" });
+    // onSuccessReady fires after ON_SUCCESS + glow hold.
+    // ScreenResult handles RESULT_DONE — do NOT dispatch here.
+    // This callback is intentionally empty; the glow state is managed
+    // inside useWizardSpeech and ScreenResult has its own hasTransitioned guard.
   }, []);
-
-  // Memoise vibes so useWizardSpeech's dependency array sees a stable reference.
-  // Without this, every state update creates a new vibes object, busting
-  // speakLine's useCallback and causing the speech effect to re-fire.
-  const stableVibes = useMemo(() => state.vibes, [
-    state.vibes.frequency,
-    state.vibes.intention,
-    state.vibes.chronotype,
-    state.vibes.palate,
-  ]);
 
   const { speaking, glowActive, muted, setMuted, speakLine, lastLine, idleLine, audioUnlocked } =
     useWizardSpeech({
       screen:         state.screen,
       quizStep:       state.quizStep,
-      vibes:          stableVibes,
+      vibes:          state.vibes,
       status:         state.status,
-      isSilenced:     state.screen === "MENU" || state.is101Open,
+      isSilenced:     state.screen === "MENU" || state.screen === "RESULT" || state.is101Open,
       onSuccessReady: handleSuccessReady,
     });
+
+  // When the 101 overlay opens, have Gideon speak the intro line once.
+  // isSilenced is true while 101 is open, so this is the ONLY speech
+  // that fires — it bypasses the gate by calling speakLine directly
+  // after the ref updates (next tick via setTimeout).
+  const prev101Open = useRef(false);
+  useEffect(() => {
+    if (state.is101Open && !prev101Open.current) {
+      setTimeout(() => {
+        speakLine("The roots of the world's botanical traditions share a common thread. Let the Alchemist walk you through the knowledge.");
+      }, 400);
+    }
+    prev101Open.current = state.is101Open;
+  }, [state.is101Open, speakLine]);
 
   return (
     <>
