@@ -667,6 +667,12 @@ function useWizardSpeech({
   const [isMuted,    setIsMuted]    = useState(startMuted);
   const [lastLine,   setLastLine]   = useState(null);
 
+  // Refs so callbacks read current values without being rebuilt on each render
+  const isMutedRef    = useRef(startMuted);
+  const isSilencedRef = useRef(isSilenced);
+  useEffect(() => { isMutedRef.current    = isMuted;    }, [isMuted]);
+  useEffect(() => { isSilencedRef.current = isSilenced; }, [isSilenced]);
+
   const IDLE_LINES = useMemo(
     () => ["IDLE_0","IDLE_1","IDLE_2","IDLE_3","IDLE_4"].map(k => SPEECH[k]),
     []
@@ -738,11 +744,13 @@ function useWizardSpeech({
     setSpeaking(false);
   }, [useGideon, elCfg, startGlowHold]);
 
+  // speakLine is stable — reads isMuted via ref, not state.
+  // This prevents the speech effect from re-firing just because mute toggled.
   const speakLine = useCallback(text => {
-    if (!text || isMuted) return;
+    if (!text || isMutedRef.current) return;
     queue.current.push(text);
     drainQueue();
-  }, [isMuted, drainQueue]);
+  }, [drainQueue]);
 
   // Speech loop fix: build a composite key for the current state.
   // If the key matches hasSpokenKey.current, skip. Otherwise speak once and lock.
@@ -750,7 +758,7 @@ function useWizardSpeech({
   // prevents status refreshes (REQ_START/REQ_SUCCESS) from re-triggering speech.
   useEffect(() => {
     if (!screen) return;
-    if (isSilenced) return;  // ← silencing gate: MENU + 101 overlay stay quiet
+    if (isSilencedRef.current) return;
     const vibeStr = [
       vibes.frequency||"", vibes.intention||"",
       vibes.chronotype||"", vibes.palate||""
@@ -795,7 +803,9 @@ function useWizardSpeech({
       speakLine(screenLine);
     }
     if (statusLine && status !== "IDLE") speakLine(statusLine);
-  }, [screen, quizStep, status, vibes, isSilenced, speakLine]);
+  // speakLine stable (drainQueue only dep). isSilenced via ref. No spurious re-fires.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, quizStep, status, vibes]);
 
   useEffect(() => () => {
     if (typeof window !== "undefined" && window.speechSynthesis)
@@ -2695,11 +2705,21 @@ export default function BulaBaseKiosk() {
     dispatch({ type:"RESULT_DONE" });
   }, []);
 
+  // Memoise vibes so useWizardSpeech's dependency array sees a stable reference.
+  // Without this, every state update creates a new vibes object, busting
+  // speakLine's useCallback and causing the speech effect to re-fire.
+  const stableVibes = useMemo(() => state.vibes, [
+    state.vibes.frequency,
+    state.vibes.intention,
+    state.vibes.chronotype,
+    state.vibes.palate,
+  ]);
+
   const { speaking, glowActive, muted, setMuted, speakLine, lastLine, idleLine, audioUnlocked } =
     useWizardSpeech({
       screen:         state.screen,
       quizStep:       state.quizStep,
-      vibes:          state.vibes,
+      vibes:          stableVibes,
       status:         state.status,
       isSilenced:     state.screen === "MENU" || state.is101Open,
       onSuccessReady: handleSuccessReady,
