@@ -740,13 +740,18 @@ function useWizardSpeech({
     window.speechSynthesis.cancel();
 
     const msg = new SpeechSynthesisUtterance(text);
-    msg.pitch = 1;
-    msg.rate = 1;
+    
+    const voices = window.speechSynthesis.getVoices();
+    const goodVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha')) || voices[0];
+    
+    if (goodVoice) msg.voice = goodVoice;
+    
+    msg.pitch = 1.1;
+    msg.rate = 0.95;
     msg.volume = 1;
 
     window.speechSynthesis.speak(msg);
   }, [isMuted]);
-
   // Speech loop fix: build a composite key for the current state.
   // If the key matches hasSpokenKey.current, skip. Otherwise speak once and lock.
   useEffect(() => {
