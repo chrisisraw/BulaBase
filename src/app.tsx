@@ -734,7 +734,7 @@ function useWizardSpeech({
     setSpeaking(false);
   }, [useGideon, elCfg, startGlowHold]);
 
- const speakLine = useCallback(text => {
+const speakLine = useCallback(text => {
     if (!text || isMuted) return;
 
     window.speechSynthesis.cancel();
@@ -742,18 +742,22 @@ function useWizardSpeech({
     const msg = new SpeechSynthesisUtterance(text);
     
     const voices = window.speechSynthesis.getVoices();
-    const goodVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha')) || voices[0];
     
-    if (goodVoice) msg.voice = goodVoice;
-    
-    msg.pitch = 1.1;
-    msg.rate = 0.95;
+    const preferredVoice = voices.find(v => v.name === 'Google US English') || 
+                          voices.find(v => v.name.includes('Samantha')) || 
+                          voices.find(v => v.name.includes('English'));
+
+    if (preferredVoice) {
+      msg.voice = preferredVoice;
+    }
+
+    msg.pitch = 1.0; 
+    msg.rate = 0.9; 
     msg.volume = 1;
 
     window.speechSynthesis.speak(msg);
   }, [isMuted]);
-  // Speech loop fix: build a composite key for the current state.
-  // If the key matches hasSpokenKey.current, skip. Otherwise speak once and lock.
+ 
   useEffect(() => {
     if (!screen) return;
     const vibeStr = [
