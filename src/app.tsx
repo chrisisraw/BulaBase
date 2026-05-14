@@ -444,7 +444,8 @@ const SHOW_AND_GO_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
 const SCREEN_SPEECH_MAP = {
   HERO:"ON_HERO", QUIZ:"ON_QUIZ", GATE:"ON_GATE",
-  SOMMELIER:"ON_SOMMELIER", RESULT:"ON_RESULT", MENU:"ON_MENU",
+  SOMMELIER:"ON_SOMMELIER", RESULT:"ON_RESULT",
+  // MENU intentionally omitted — isSilenced gate handles the full screen
 };
 const STEP_SPEECH_MAP = {
   frequency:"ON_FREQUENCY", intention:"ON_INTENTION",
@@ -658,6 +659,7 @@ function useWizardSpeech({
   vibes         = {},
   status        = "IDLE",
   startMuted    = false,
+  isSilenced    = false,
   onSuccessReady = null,
 } = {}) {
   const [speaking,   setSpeaking]   = useState(false);
@@ -673,10 +675,10 @@ function useWizardSpeech({
   const idleLine = IDLE_LINES[idleIdx];
 
   useEffect(() => {
-    if (speaking || glowActive) return;
+    if (speaking || glowActive || isSilenced) return;
     const id = setInterval(() => setIdleIdx(i => (i + 1) % IDLE_LINES.length), 4800);
     return () => clearInterval(id);
-  }, [speaking, glowActive, IDLE_LINES.length]);
+  }, [speaking, glowActive, isSilenced, IDLE_LINES.length]);
 
   const useGideon = VOICE_ENGINE === "eleven_labs"
     && !!(BULA_CONFIG.voice.apiKey && BULA_CONFIG.voice.voiceId);
@@ -744,8 +746,11 @@ function useWizardSpeech({
 
   // Speech loop fix: build a composite key for the current state.
   // If the key matches hasSpokenKey.current, skip. Otherwise speak once and lock.
+  // isSilenced: when true (MENU screen, 101 overlay) no new lines are queued —
+  // prevents status refreshes (REQ_START/REQ_SUCCESS) from re-triggering speech.
   useEffect(() => {
     if (!screen) return;
+    if (isSilenced) return;  // ← silencing gate: MENU + 101 overlay stay quiet
     const vibeStr = [
       vibes.frequency||"", vibes.intention||"",
       vibes.chronotype||"", vibes.palate||""
@@ -782,7 +787,6 @@ function useWizardSpeech({
     if (vibeLines.length > 0) {
       vibeLines.forEach(l => speakLine(l));
     } else if (screen === "QUIZ" && window.BULA_RETURNING_GREETING) {
-      // Returning user lands on QUIZ — speak the personal welcome once, then clear the flag
       window.BULA_RETURNING_GREETING = false;
       speakLine(SPEECH.ON_RETURNING);
     } else if (stepLine) {
@@ -791,7 +795,7 @@ function useWizardSpeech({
       speakLine(screenLine);
     }
     if (statusLine && status !== "IDLE") speakLine(statusLine);
-  }, [screen, quizStep, status, vibes, speakLine]);
+  }, [screen, quizStep, status, vibes, isSilenced, speakLine]);
 
   useEffect(() => () => {
     if (typeof window !== "undefined" && window.speechSynthesis)
@@ -2605,15 +2609,17 @@ function ScreenMenu({ state, speaking, glowActive, lastLine, idleLine, dispatch,
   return(
     <div>
       <div style={{marginBottom:24}}>
-        {window.BULA_RETURNING_USER ? (
+        {window.BULA_RETURNING_USER && window.BULA_RETURNING_USER.length > 1 ? (
           <>
             <div style={{fontFamily:TF.mono,fontSize:7,color:C.goldDim,letterSpacing:3,textTransform:"uppercase",marginBottom:6}}>
               WELCOME BACK
             </div>
-            <h1 style={{fontFamily:TF.serif,fontStyle:"italic",fontSize:28,fontWeight:400,color:C.cream,lineHeight:1.08,marginBottom:4}}>
-              {window.BULA_RETURNING_USER}.<br/>
-              <span style={{fontSize:22,color:C.muted}}>Tonight's selection awaits.</span>
+            <h1 style={{fontFamily:TF.serif,fontStyle:"italic",fontSize:28,fontWeight:400,color:C.cream,lineHeight:1.08,marginBottom:2}}>
+              {window.BULA_RETURNING_USER}.
             </h1>
+            <div style={{fontFamily:TF.serif,fontStyle:"italic",fontSize:22,color:C.muted,marginBottom:0,lineHeight:1.3}}>
+              Tonight's selection awaits.
+            </div>
           </>
         ) : (
           <h1 style={{fontFamily:TF.serif,fontStyle:"italic",fontSize:28,fontWeight:400,color:C.cream,lineHeight:1.08}}>
@@ -2695,6 +2701,7 @@ export default function BulaBaseKiosk() {
       quizStep:       state.quizStep,
       vibes:          state.vibes,
       status:         state.status,
+      isSilenced:     state.screen === "MENU" || state.is101Open,
       onSuccessReady: handleSuccessReady,
     });
 
