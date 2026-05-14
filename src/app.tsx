@@ -737,18 +737,12 @@ function useWizardSpeech({
  const speakLine = useCallback(text => {
     if (!text || isMuted) return;
 
-    // Kills any existing speech immediately so the new line can start
     window.speechSynthesis.cancel();
 
     const msg = new SpeechSynthesisUtterance(text);
-    
-    // Uses your existing config for the Wizard's voice
-    if (typeof BULA_CONFIG !== 'undefined') {
-      msg.voice = window.speechSynthesis.getVoices().find(v => v.name === BULA_CONFIG.audio.voiceName) || null;
-      msg.pitch = BULA_CONFIG.audio.pitch;
-      msg.rate = BULA_CONFIG.audio.rate;
-      msg.volume = BULA_CONFIG.audio.volume;
-    }
+    msg.pitch = 1;
+    msg.rate = 1;
+    msg.volume = 1;
 
     window.speechSynthesis.speak(msg);
   }, [isMuted]);
