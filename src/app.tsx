@@ -669,7 +669,6 @@ function speakWebSpeech(text, voice) {
         resolve();
       }
     }, WEB_SPEECH_DEADLINE_MS);
-  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
