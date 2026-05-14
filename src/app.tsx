@@ -2674,7 +2674,7 @@ function ScreenMenu({ state, speaking, glowActive, lastLine, idleLine, dispatch,
 // Called by useWizardSpeech after ON_SUCCESS audio + SUCCESS_GLOW_HOLD_MS (1500ms).
 // ScreenResult.hasTransitioned ref prevents double-fire if user also taps "Continue".
 
-export default function BulaBaseKiosk() {
+  function BulaBaseKiosk() {
   const [state, dispatch] = useReducer(appReducer, FSM_INIT);
 
   const { active:showGoActive, secondsLeft, redeemedItem, pourCount, startShowAndGo, dismissShowAndGo } =
@@ -2730,7 +2730,6 @@ export default function BulaBaseKiosk() {
     </>
   );
 }
-export default BulaBaseKiosk;
 
 const rootElement = document.getElementById('root');
 if (rootElement) {
