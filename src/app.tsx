@@ -1688,9 +1688,19 @@ function resolveRec(inventory, vibes) {
 // Never reference FSM_INIT inside RESTART — it was evaluated once at load
 // and may already contain a returning user's data.
 const FSM_DEFAULTS = {
-  screen:"AGE_GATE", quizStep:QUIZ_STATES.FREQUENCY, vibes:{}, user:null,
-  recommendedId:null, status:"IDLE", inventory:BASE_INV, error:null,
-  lastActionId:null, lastItemName:null, isDossierMode:true, hiddenCategories:[],
+  screen: "HERO", 
+  quizStep: QUIZ_STATES.FREQUENCY, 
+  vibes: {}, 
+  user: null,
+  is101Open: false,
+  recommendedId: null, 
+  status: "IDLE", 
+  inventory: BASE_INV, 
+  error: null,
+  lastActionId: null, 
+  lastItemName: null, 
+  isDossierMode: true, 
+  hiddenCategories: [],
 };
 
 // ── getInitialState — returning user check ────────────────────────────────────
@@ -2727,12 +2737,39 @@ function ScreenMenu({ state, speaking, glowActive, lastLine, idleLine, dispatch,
         onToggleDossier={()=>dispatch({type:"TOGGLE_DOSSIER"})}
       >
         {state.screen==="AGE_GATE"   && <ScreenAgeGate dispatch={dispatch}/>}
-        {state.screen==="HERO"       && <ScreenHero dispatch={dispatch} audioUnlocked={audioUnlocked}/>}
+       {state.screen==="HERO" && (
+  <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <ScreenHero dispatch={dispatch} audioUnlocked={audioUnlocked}/>
+    <button 
+      onClick={() => dispatch({ type: "OPEN_101" })}
+      style={{ position: 'absolute', bottom: '15%', left: '50%', transform: 'translateX(-50%)', padding: '15px 30px', fontSize: '1.2rem', backgroundColor: '#DEFF9A', color: '#000', borderRadius: '50px', fontWeight: 'bold', border: 'none', zIndex: 20, cursor: 'pointer' }}
+    >
+      KAVA & KRATOM 101
+    </button>
+  </div>
+)}
         {state.screen==="QUIZ"      && <ScreenQuiz quizStep={state.quizStep} vibes={state.vibes} dispatch={dispatch}/>}
         {state.screen==="GATE"      && <ScreenGate dispatch={dispatch}/>}
         {state.screen==="SOMMELIER" && <ScreenSommelier dispatch={dispatch} inventory={state.inventory} vibes={state.vibes}/>}
         {state.screen==="RESULT"    && <ScreenResult state={state} speaking={speaking} glowActive={glowActive} lastLine={lastLine} idleLine={idleLine} dispatch={dispatch}/>}
         {state.screen==="MENU"      && <ScreenMenu state={state} speaking={speaking} glowActive={glowActive} lastLine={lastLine} idleLine={idleLine} dispatch={dispatch} onPourSuccess={startShowAndGo}/>}
+     {state.is101Open && (
+          <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.98)", zIndex: 10000, display: "flex", flexDirection: "column", padding: "60px", color: "white" }}>
+            <button 
+              onClick={() => dispatch({ type: "CLOSE_101" })} 
+              style={{ alignSelf: "flex-end", fontSize: "1.5rem", background: "#DEFF9A", color: "#000", border: "none", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}
+            >
+              ✕ CLOSE
+            </button>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+               <h1 style={{ fontSize: "3rem", marginBottom: "20px" }}>The 101 Education</h1>
+               <p style={{ fontSize: "1.5rem", maxWidth: "800px", textAlign: "center" }}>
+                 Welcome to the educational guide for Troy's Kava Bar. 
+                 (Insert your educational text or video link here).
+               </p>
+            </div>
+          </div>
+        )}
       </KioskShell>
 
       {/* Show & Go overlay — fixed, above everything, survives screen changes */}
