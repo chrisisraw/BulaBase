@@ -2736,24 +2736,27 @@ function ScreenMenu({ state, speaking, glowActive, lastLine, idleLine, dispatch,
         onFullReset={()=>dispatch({type:"RESTART"})}
         onToggleDossier={()=>dispatch({type:"TOGGLE_DOSSIER"})}
       >
-        {state.screen==="AGE_GATE"   && <ScreenAgeGate dispatch={dispatch}/>}
-       {state.screen==="HERO" && (
-  <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-    <ScreenHero dispatch={dispatch} audioUnlocked={audioUnlocked}/>
-    <button 
-      onClick={() => dispatch({ type: "OPEN_101" })}
-      style={{ position: 'absolute', bottom: '15%', left: '50%', transform: 'translateX(-50%)', padding: '15px 30px', fontSize: '1.2rem', backgroundColor: '#DEFF9A', color: '#000', borderRadius: '50px', fontWeight: 'bold', border: 'none', zIndex: 20, cursor: 'pointer' }}
-    >
-      KAVA & KRATOM 101
-    </button>
-  </div>
-)}
-        {state.screen==="QUIZ"      && <ScreenQuiz quizStep={state.quizStep} vibes={state.vibes} dispatch={dispatch}/>}
-        {state.screen==="GATE"      && <ScreenGate dispatch={dispatch}/>}
-        {state.screen==="SOMMELIER" && <ScreenSommelier dispatch={dispatch} inventory={state.inventory} vibes={state.vibes}/>}
-        {state.screen==="RESULT"    && <ScreenResult state={state} speaking={speaking} glowActive={glowActive} lastLine={lastLine} idleLine={idleLine} dispatch={dispatch}/>}
-        {state.screen==="MENU"      && <ScreenMenu state={state} speaking={speaking} glowActive={glowActive} lastLine={lastLine} idleLine={idleLine} dispatch={dispatch} onPourSuccess={startShowAndGo}/>}
-     {state.is101Open && (
+{state.screen==="AGE_GATE"   && <ScreenAgeGate dispatch={dispatch}/>}
+        {state.screen==="HERO"       && <ScreenHero dispatch={dispatch} audioUnlocked={audioUnlocked}/>}
+        {state.screen==="QUIZ"       && <ScreenQuiz quizStep={state.quizStep} vibes={state.vibes} dispatch={dispatch}/>}
+        {state.screen==="GATE"       && <ScreenGate dispatch={dispatch}/>}
+        {state.screen==="SOMMELIER"  && <ScreenSommelier dispatch={dispatch} inventory={state.inventory} vibes={state.vibes}/>}
+        {state.screen==="RESULT"     && <ScreenResult state={state} speaking={speaking} glowActive={glowActive} lastLine={lastLine} idleLine={idleLine} dispatch={dispatch}/>}
+        
+       {state.screen==="MENU" && (
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            <ScreenMenu state={state} speaking={speaking} glowActive={glowActive} lastLine={lastLine} idleLine={idleLine} dispatch={dispatch} onPourSuccess={startShowAndGo}/>
+            <button 
+              onClick={() => dispatch({ type: "OPEN_101" })}
+              style={{ position: 'absolute', top: '20px', right: '20px', padding: '10px 20px', fontSize: '1rem', backgroundColor: '#DEFF9A', color: '#000', borderRadius: '8px', fontWeight: 'bold', border: 'none', zIndex: 20, cursor: 'pointer' }}
+            >
+              KAVA & KRATOM 101
+            </button>
+          </div>
+        )}
+
+        {/* --- THE 101 OVERLAY --- */}
+        {state.is101Open && (
           <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.98)", zIndex: 10000, display: "flex", flexDirection: "column", padding: "60px", color: "white" }}>
             <button 
               onClick={() => dispatch({ type: "CLOSE_101" })} 
@@ -2765,7 +2768,7 @@ function ScreenMenu({ state, speaking, glowActive, lastLine, idleLine, dispatch,
                <h1 style={{ fontSize: "3rem", marginBottom: "20px" }}>The 101 Education</h1>
                <p style={{ fontSize: "1.5rem", maxWidth: "800px", textAlign: "center" }}>
                  Welcome to the educational guide for Troy's Kava Bar. 
-                 (Insert your educational text or video link here).
+                 (You can drop your Blink Twice content or video link here later!)
                </p>
             </div>
           </div>
