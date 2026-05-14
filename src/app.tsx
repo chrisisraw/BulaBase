@@ -2729,3 +2729,10 @@ export default function BulaBaseKiosk() {
     </>
   );
 }
+export default BulaBaseKiosk;
+
+const rootElement = document.getElementById('root');
+if (rootElement) {
+  const root = ReactDOM.createRoot(rootElement);
+  root.render(<BulaBaseKiosk />);
+}
