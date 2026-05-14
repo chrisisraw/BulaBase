@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, useReducer } from 'react';
+import ReactDOM from 'react-dom/client';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BULA BASE v4.2.1 — FINAL CANONICAL BUILD
