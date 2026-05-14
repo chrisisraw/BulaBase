@@ -633,9 +633,10 @@ function speakWebSpeech(text, voice) {
       window.speechSynthesis.pause();
       window.speechSynthesis.resume();
     }, 10000);
-    deadline = setTimeout(() => {
+   deadline = setTimeout(() => {
       if (!resolved) {
-        resolved = true; clearInterval(nudge);
+        resolved = true; 
+        clearInterval(nudge);
         console.warn(`[WizardSpeech] 18s bouncer fired — "${text.slice(0,40)}..."`);
         window.speechSynthesis.cancel();
         resolve();
@@ -643,48 +644,17 @@ function speakWebSpeech(text, voice) {
     }, WEB_SPEECH_DEADLINE_MS);
   });
 }
-    let resolved = false, nudge, deadline;
-    const done = reason => {
-      if (resolved) return;
-      resolved = true;
-      clearInterval(nudge); clearTimeout(deadline);
-      if (reason !== "error") resolve();
-    };
-    utt.onend   = () => done("end");
-    utt.onerror = e => {
-      clearInterval(nudge); clearTimeout(deadline);
-      (e.error === "interrupted" || e.error === "canceled") ? resolve() : reject(e);
-    };
-    window.speechSynthesis.speak(utt);
-    nudge = setInterval(() => {
-      if (!window.speechSynthesis.speaking) { clearInterval(nudge); return; }
-      window.speechSynthesis.pause();
-      window.speechSynthesis.resume();
-    }, 10000);
-    deadline = setTimeout(() => {
-      if (!resolved) {
-        resolved = true; clearInterval(nudge);
-        console.warn(`[WizardSpeech] 18s bouncer fired — "${text.slice(0,40)}..."`);
-        window.speechSynthesis.cancel();
-        resolve();
-      }
-    }, WEB_SPEECH_DEADLINE_MS);
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useWizardSpeech
 // ─────────────────────────────────────────────────────────────────────────────
-// Speech loop fix: a `hasSpoken` ref per state transition prevents the Wizard
-// from re-queuing the same screen/step/status line if the component re-renders.
-// The per-transition ref is keyed by a composite string: `${screen}|${quizStep}|${status}`.
-// When that key changes, the ref is reset and the new line is spoken exactly once.
 
 function useWizardSpeech({
-  screen        = null,
-  quizStep      = null,
-  vibes         = {},
-  status        = "IDLE",
-  startMuted    = false,
+  screen         = null,
+  quizStep       = null,
+  vibes          = {},
+  status         = "IDLE",
+  startMuted     = false,
   onSuccessReady = null,
 } = {}) {
   const [speaking,   setSpeaking]   = useState(false);
