@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, useReducer } from 'react';
-import ReactDOM from 'react-dom/client';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BULA BASE v4.2.1 — FINAL CANONICAL BUILD
@@ -634,10 +633,9 @@ function speakWebSpeech(text, voice) {
       window.speechSynthesis.pause();
       window.speechSynthesis.resume();
     }, 10000);
-   deadline = setTimeout(() => {
+    deadline = setTimeout(() => {
       if (!resolved) {
-        resolved = true; 
-        clearInterval(nudge);
+        resolved = true; clearInterval(nudge);
         console.warn(`[WizardSpeech] 18s bouncer fired — "${text.slice(0,40)}..."`);
         window.speechSynthesis.cancel();
         resolve();
@@ -649,13 +647,17 @@ function speakWebSpeech(text, voice) {
 // ─────────────────────────────────────────────────────────────────────────────
 // useWizardSpeech
 // ─────────────────────────────────────────────────────────────────────────────
+// Speech loop fix: a `hasSpoken` ref per state transition prevents the Wizard
+// from re-queuing the same screen/step/status line if the component re-renders.
+// The per-transition ref is keyed by a composite string: `${screen}|${quizStep}|${status}`.
+// When that key changes, the ref is reset and the new line is spoken exactly once.
 
 function useWizardSpeech({
-  screen         = null,
-  quizStep       = null,
-  vibes          = {},
-  status         = "IDLE",
-  startMuted     = false,
+  screen        = null,
+  quizStep      = null,
+  vibes         = {},
+  status        = "IDLE",
+  startMuted    = false,
   onSuccessReady = null,
 } = {}) {
   const [speaking,   setSpeaking]   = useState(false);
@@ -734,30 +736,14 @@ function useWizardSpeech({
     setSpeaking(false);
   }, [useGideon, elCfg, startGlowHold]);
 
-const speakLine = useCallback(text => {
+  const speakLine = useCallback(text => {
     if (!text || isMuted) return;
+    queue.current.push(text);
+    drainQueue();
+  }, [isMuted, drainQueue]);
 
-    window.speechSynthesis.cancel();
-
-    const msg = new SpeechSynthesisUtterance(text);
-    
-    const voices = window.speechSynthesis.getVoices();
-    
-    const preferredVoice = voices.find(v => v.name === 'Google US English') || 
-                          voices.find(v => v.name.includes('Samantha')) || 
-                          voices.find(v => v.name.includes('English'));
-
-    if (preferredVoice) {
-      msg.voice = preferredVoice;
-    }
-
-    msg.pitch = 1.0; 
-    msg.rate = 0.9; 
-    msg.volume = 1;
-
-    window.speechSynthesis.speak(msg);
-  }, [isMuted]);
- 
+  // Speech loop fix: build a composite key for the current state.
+  // If the key matches hasSpokenKey.current, skip. Otherwise speak once and lock.
   useEffect(() => {
     if (!screen) return;
     const vibeStr = [
@@ -1688,19 +1674,10 @@ function resolveRec(inventory, vibes) {
 // Never reference FSM_INIT inside RESTART — it was evaluated once at load
 // and may already contain a returning user's data.
 const FSM_DEFAULTS = {
-  screen: "HERO", 
-  quizStep: QUIZ_STATES.FREQUENCY, 
-  vibes: {}, 
-  user: null,
-  is101Open: false,
-  recommendedId: null, 
-  status: "IDLE", 
-  inventory: BASE_INV, 
-  error: null,
-  lastActionId: null, 
-  lastItemName: null, 
-  isDossierMode: true, 
-  hiddenCategories: [],
+  screen:"AGE_GATE", quizStep:QUIZ_STATES.FREQUENCY, vibes:{}, user:null,
+  is101Open:false,
+  recommendedId:null, status:"IDLE", inventory:BASE_INV, error:null,
+  lastActionId:null, lastItemName:null, isDossierMode:true, hiddenCategories:[],
 };
 
 // ── getInitialState — returning user check ────────────────────────────────────
@@ -1770,6 +1747,8 @@ function appReducer(s, a) {
     case "REQ_FAIL":       return{...s,status:"ERROR",error:a.payload};
     case "RESET":          return{...s,status:"IDLE",error:null};
     case "TOGGLE_DOSSIER": return{...s,isDossierMode:!s.isDossierMode};
+    case "OPEN_101":       return{...s,is101Open:true};
+    case "CLOSE_101":      return{...s,is101Open:false};
     case "TOGGLE_CATEGORY":{const h=s.hiddenCategories.includes(a.payload)?s.hiddenCategories.filter(c=>c!==a.payload):[...s.hiddenCategories,a.payload];return{...s,hiddenCategories:h};}
     case "UPDATE_ITEM":    return{...s,inventory:s.inventory.map(i=>i.id===a.payload.id?{...i,...a.payload.patch}:i)};
     case "RESTART": {
@@ -2700,7 +2679,7 @@ function ScreenMenu({ state, speaking, glowActive, lastLine, idleLine, dispatch,
 // Called by useWizardSpeech after ON_SUCCESS audio + SUCCESS_GLOW_HOLD_MS (1500ms).
 // ScreenResult.hasTransitioned ref prevents double-fire if user also taps "Continue".
 
-  function BulaBaseKiosk() {
+export default function BulaBaseKiosk() {
   const [state, dispatch] = useReducer(appReducer, FSM_INIT);
 
   const { active:showGoActive, secondsLeft, redeemedItem, pourCount, startShowAndGo, dismissShowAndGo } =
@@ -2736,40 +2715,112 @@ function ScreenMenu({ state, speaking, glowActive, lastLine, idleLine, dispatch,
         onFullReset={()=>dispatch({type:"RESTART"})}
         onToggleDossier={()=>dispatch({type:"TOGGLE_DOSSIER"})}
       >
-{state.screen==="AGE_GATE"   && <ScreenAgeGate dispatch={dispatch}/>}
+        {state.screen==="AGE_GATE"   && <ScreenAgeGate dispatch={dispatch}/>}
         {state.screen==="HERO"       && <ScreenHero dispatch={dispatch} audioUnlocked={audioUnlocked}/>}
-        {state.screen==="QUIZ"       && <ScreenQuiz quizStep={state.quizStep} vibes={state.vibes} dispatch={dispatch}/>}
-        {state.screen==="GATE"       && <ScreenGate dispatch={dispatch}/>}
-        {state.screen==="SOMMELIER"  && <ScreenSommelier dispatch={dispatch} inventory={state.inventory} vibes={state.vibes}/>}
-        {state.screen==="RESULT"     && <ScreenResult state={state} speaking={speaking} glowActive={glowActive} lastLine={lastLine} idleLine={idleLine} dispatch={dispatch}/>}
-        
-       {state.screen==="MENU" && (
-          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        {state.screen==="QUIZ"      && <ScreenQuiz quizStep={state.quizStep} vibes={state.vibes} dispatch={dispatch}/>}
+        {state.screen==="GATE"      && <ScreenGate dispatch={dispatch}/>}
+        {state.screen==="SOMMELIER" && <ScreenSommelier dispatch={dispatch} inventory={state.inventory} vibes={state.vibes}/>}
+        {state.screen==="RESULT"    && <ScreenResult state={state} speaking={speaking} glowActive={glowActive} lastLine={lastLine} idleLine={idleLine} dispatch={dispatch}/>}
+        {state.screen==="MENU" && (
+          <>
             <ScreenMenu state={state} speaking={speaking} glowActive={glowActive} lastLine={lastLine} idleLine={idleLine} dispatch={dispatch} onPourSuccess={startShowAndGo}/>
-            <button 
-              onClick={() => dispatch({ type: "OPEN_101" })}
-              style={{ position: 'absolute', top: '20px', right: '20px', padding: '10px 20px', fontSize: '1rem', backgroundColor: '#DEFF9A', color: '#000', borderRadius: '8px', fontWeight: 'bold', border: 'none', zIndex: 20, cursor: 'pointer' }}
-            >
-              KAVA & KRATOM 101
+            {/* 101 Education button — fixed bottom-right, always accessible on Menu screen */}
+            <button
+              onClick={() => dispatch({ type:"OPEN_101" })}
+              style={{
+                position:"fixed", bottom:24, right:20, zIndex:100,
+                padding:"12px 18px", borderRadius:28, border:"none",
+                background:`linear-gradient(135deg, ${C.neon}, #b8e85c)`,
+                color:C.jade, fontFamily:TF.mono, fontWeight:700,
+                fontSize:8, letterSpacing:2, textTransform:"uppercase",
+                cursor:"pointer", boxShadow:`0 6px 24px rgba(222,255,154,0.22)`,
+              }}>
+              🌿 KAVA &amp; KRATOM 101
             </button>
-          </div>
+          </>
         )}
 
-        {/* --- THE 101 OVERLAY --- */}
+        {/* ── BOTANICAL 101 OVERLAY ── */}
         {state.is101Open && (
-          <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.98)", zIndex: 10000, display: "flex", flexDirection: "column", padding: "60px", color: "white" }}>
-            <button 
-              onClick={() => dispatch({ type: "CLOSE_101" })} 
-              style={{ alignSelf: "flex-end", fontSize: "1.5rem", background: "#DEFF9A", color: "#000", border: "none", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}
-            >
-              ✕ CLOSE
-            </button>
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-               <h1 style={{ fontSize: "3rem", marginBottom: "20px" }}>The 101 Education</h1>
-               <p style={{ fontSize: "1.5rem", maxWidth: "800px", textAlign: "center" }}>
-                 Welcome to the educational guide for Troy's Kava Bar. 
-                 (You can drop your Blink Twice content or video link here later!)
-               </p>
+          <div style={{
+            position:"fixed", inset:0, zIndex:10000,
+            background:"rgba(6,15,10,0.98)", backdropFilter:"blur(20px)",
+            display:"flex", flexDirection:"column",
+            padding:"0", animation:"adminReveal 0.25s ease both",
+            overflowY:"auto",
+          }}>
+            {/* Header */}
+            <div style={{
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:"16px 20px", borderBottom:"1px solid rgba(255,255,255,0.06)",
+              background:"rgba(9,26,17,0.95)", backdropFilter:"blur(12px)",
+              position:"sticky", top:0, zIndex:1,
+            }}>
+              <div>
+                <div style={{fontFamily:TF.mono,fontSize:7,color:C.goldDim,letterSpacing:3,textTransform:"uppercase",marginBottom:3}}>
+                  ✦ BULA BASE · BOTANICAL LIBRARY
+                </div>
+                <div style={{fontFamily:TF.serif,fontStyle:"italic",fontSize:20,color:C.cream}}>
+                  Kava &amp; Kratom 101
+                </div>
+              </div>
+              <button
+                onClick={() => dispatch({ type:"CLOSE_101" })}
+                style={{
+                  background:`rgba(222,255,154,0.08)`, border:`1px solid rgba(222,255,154,0.22)`,
+                  borderRadius:12, padding:"10px 16px", color:C.neon,
+                  fontFamily:TF.mono, fontSize:8, letterSpacing:2,
+                  textTransform:"uppercase", cursor:"pointer",
+                }}>
+                ✕ CLOSE
+              </button>
+            </div>
+
+            {/* Content — BOTANICAL_LIBRARY cards */}
+            <div style={{padding:"20px 20px 80px",maxWidth:480,margin:"0 auto",width:"100%"}}>
+              {BOTANICAL_LIBRARY.filter(b => b.visible).map(b => (
+                <div key={b.id} style={{
+                  marginBottom:16, borderRadius:18,
+                  background:"rgba(255,255,255,0.025)",
+                  backdropFilter:"blur(12px)",
+                  borderTop:"1px solid rgba(255,255,255,0.08)",
+                  borderLeft:"1px solid rgba(255,255,255,0.08)",
+                  borderRight:"1px solid rgba(255,255,255,0.03)",
+                  borderBottom:"1px solid rgba(255,255,255,0.03)",
+                  overflow:"hidden",
+                }}>
+                  {/* Card header */}
+                  <div style={{padding:"14px 18px 10px",borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                      <div style={{fontFamily:TF.serif,fontStyle:"italic",fontSize:19,color:C.cream}}>{b.name}</div>
+                      <span style={{fontFamily:TF.mono,fontSize:6,color:C.goldDim,letterSpacing:2,textTransform:"uppercase",background:"rgba(212,175,55,0.07)",border:"1px solid rgba(212,175,55,0.15)",borderRadius:4,padding:"2px 8px"}}>
+                        {b.tag}
+                      </span>
+                    </div>
+                    {/* Alchemist fact hook */}
+                    <div style={{fontFamily:TF.mono,fontSize:8,color:C.neon,letterSpacing:0.5,lineHeight:1.65}}>
+                      "{b.function}"
+                    </div>
+                  </div>
+                  {/* Card body */}
+                  <div style={{padding:"12px 18px 14px"}}>
+                    {[
+                      {label:"ESSENCE",  text:b.essence},
+                      {label:"FEELING",  text:b.feeling},
+                      {label:"PROTOCOL", text:b.protocol},
+                    ].map(({label,text}) => (
+                      <div key={label} style={{marginBottom:10}}>
+                        <div style={{fontFamily:TF.mono,fontSize:6,color:C.goldDim,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>
+                          {label}
+                        </div>
+                        <p style={{fontFamily:TF.serif,fontStyle:"italic",fontSize:11,color:C.muted,lineHeight:1.75,margin:0}}>
+                          {text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -2785,10 +2836,4 @@ function ScreenMenu({ state, speaking, glowActive, lastLine, idleLine, dispatch,
       />
     </>
   );
-}
-
-const rootElement = document.getElementById('root');
-if (rootElement) {
-  const root = ReactDOM.createRoot(rootElement);
-  root.render(<BulaBaseKiosk />);
 }
